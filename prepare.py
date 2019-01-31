@@ -6,7 +6,10 @@ from bokeh.plotting import figure, output_file, show
 from bokeh.models import ColumnDataSource, FactorRange, Label
 from bokeh.models.tools import HoverTool
 from bokeh.transform import factor_cmap
-
+from math import pi
+from bokeh.layouts import layout, column,row
+from bokeh.embed import file_html
+from bokeh.resources import CDN
 
 def dataprep(CRpath,COpath):
     '''
@@ -275,8 +278,9 @@ def COshow(CRpath,COpath,render = False):
     
     if render == True:
         show(COganntfig)
-        
-    return COganntfig
+        return None
+    else:
+        return COganntfig
     
 #Now Work on the Weekly Statistics
 
@@ -389,6 +393,133 @@ def COweekly(COPath,render = False):
         return COmetrics
         
  
+def COarc(COPath,render = False):
+    COs = COprep(COPath)
     
+    OpenCOs = COs.loc[COs['Actual CO Complete'].apply(lambda x:pd.isnull(x)),:]
+    under30 = OpenCOs['Days Open'][OpenCOs['Days Open']< 30].shape[0]
+    over30  = OpenCOs['Days Open'][OpenCOs['Days Open'] >= 30].shape[0]
+    under30 = under30/(under30+over30)
+    over30 = 1-under30
+    COcount = str(OpenCOs.shape[0])
+    
+    
+    
+    COarc = figure(plot_width=400, plot_height=400,x_range = [-2.5,2.5],y_range = [-2.5,2.5],title = 'CO Target',)
+    COarc.annular_wedge(x=0, y=0, inner_radius=1.2, outer_radius=2,
+                    start_angle=0.0, end_angle=2*pi*under30, color="green", alpha=0.6)
+    COarc.annular_wedge(x = 0, y = 0, inner_radius = 1.2, outer_radius = 2,
+               start_angle = 2*pi*under30,end_angle = 2*pi,color = 'red',alpha = 0.6)
+    
+    centertext = COcount
+    openpct = 'On Time = {0:2.0f}%'.format(under30*100)
+    
+    mytext = Label(x=0, y=0, text=centertext,text_align = 'center',text_font_size = '30pt')
+    mytext2 = Label(x = 2.4,y = 1.9,text = openpct,text_font_size= '20pt',text_align = 'right')
+    
+    COarc.add_layout(mytext)
+    COarc.add_layout(mytext2)
+    
+    
+    COarc.xaxis.visible = False
+    COarc.yaxis.visible = False
+    COarc.xgrid.grid_line_color = None
+    COarc.ygrid.grid_line_color = None
+    COarc.title.text_font_size = '12pt'
+    
+    COarc.toolbar.logo = None
+    COarc.toolbar_location = None
+    
+    if render == True:
+        show(COarc)
+        return None
+    else:
+        return COarc
+    
+def CRarc(CRPath,render = False):
+    
+    CRs = CRprep(CRPath)
+    
+    OpenCRs = CRs.loc[CRs['Workflow State'] != 'Complete',:]
+    under30 = OpenCRs['Days Open'][OpenCRs['Days Open']< 30].shape[0]
+    over30  = OpenCRs['Days Open'][OpenCRs['Days Open'] >= 30].shape[0]
+    under30 = under30/(under30+over30)
+    over30 = 1-under30
+    
+    CRarc1 = figure(plot_width=400, plot_height=400,x_range = [-2.5,2.5],y_range = [-2.5,2.5],title = 'CR Target',)
+    CRarc1.annular_wedge(x=0, y=0, inner_radius=1.2, outer_radius=2,
+                    start_angle=0.0, end_angle=2*pi*under30, color="green", alpha=0.6)
+    CRarc1.annular_wedge(x = 0, y = 0, inner_radius = 1.2, outer_radius = 2,
+               start_angle = 2*pi*under30,end_angle = 2*pi,color = 'red',alpha = 0.6)
+    
+    CRarc1.xaxis.visible = False
+    CRarc1.yaxis.visible = False
+    CRarc1.xgrid.grid_line_color = None
+    CRarc1.ygrid.grid_line_color = None
+    CRarc1.title.text_font_size = '12pt'
+    
+    CRarc1.toolbar.logo = None
+    CRarc1.toolbar_location = None
+        
+    if render == True:
+        show(CRarc1)
+        return None
+    else:
+        return CRarc1
+    
+def COarc(COPath,render = False):
+    
+    COs = COprep(COPath)
+    
+    OpenCOs = COs.loc[COs['Actual CO Complete'].apply(lambda x:pd.isnull(x)),:]
+    under30 = OpenCOs['Days Open'][OpenCOs['Days Open']< 30].shape[0]
+    over30  = OpenCOs['Days Open'][OpenCOs['Days Open'] >= 30].shape[0]
+    under30 = under30/(under30+over30)
+    over30 = 1-under30
+    COcount = str(OpenCOs.shape[0])
+    
+    
+    
+    COarc1 = figure(plot_width=400, plot_height=400,x_range = [-2.5,2.5],y_range = [-2.5,2.5],title = 'CO Target',)
+    COarc1.annular_wedge(x=0, y=0, inner_radius=1.2, outer_radius=2,
+                    start_angle=0.0, end_angle=2*pi*under30, color="green", alpha=0.6)
+    COarc1.annular_wedge(x = 0, y = 0, inner_radius = 1.2, outer_radius = 2,
+               start_angle = 2*pi*under30,end_angle = 2*pi,color = 'red',alpha = 0.6)
+    
+    centertext = COcount
+    openpct = 'On Time = {0:2.0f}%'.format(under30*100)
+    
+    mytext = Label(x=0, y=0, text=centertext,text_align = 'center',text_font_size = '30pt')
+    mytext2 = Label(x = 2.4,y = 1.9,text = openpct,text_font_size= '20pt',text_align = 'right')
+    
+    COarc1.add_layout(mytext)
+    COarc1.add_layout(mytext2)
+    
+    
+    COarc1.xaxis.visible = False
+    COarc1.yaxis.visible = False
+    COarc1.xgrid.grid_line_color = None
+    COarc1.ygrid.grid_line_color = None
+    COarc1.title.text_font_size = '12pt'
+    
+    COarc1.toolbar.logo = None
+    COarc1.toolbar_location = None
+    
+    if render == True:
+        show(COarc1)
+        return None
+    else:
+        return COarc1
+    
+def COdash(COPath,CRPath,outfile):
+    leftside = column(COweekly(COPath),COarc(COPath))
+    rightside = column(COshow(COPath,CRPath))
+    codash = row(leftside,rightside)
+    
+    html = file_html(codash, CDN, "CO's")
 
+    with open(outfile,'w') as file: # Use file to refer to the file object
 
+        file.write(html)
+        
+        
