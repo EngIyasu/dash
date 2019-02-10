@@ -11,6 +11,16 @@ from bokeh.layouts import layout, column,row
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 
+
+def _bdaycount(dstart,dend):
+    
+    if (pd.isna(dstart)) or (pd.isna(dend)):
+        return 999
+    else:
+  
+        temp = pd.date_range(dstart,dend,freq = 'B')
+        return temp.shape[0]
+
 def dataprep(CRpath,COpath):
     '''
     Function to prepare the raw excel files
@@ -37,10 +47,16 @@ def dataprep(CRpath,COpath):
 def CRprep(CRpath):
     CRs = pd.read_excel(CRpath,header = 0)
     #Calculate days open for CRs
-    CRs.loc[CRs['Workflow State'] == 'Complete','Days Open'] = CRs.loc[CRs['Workflow State'] == 'Complete',:].apply(lambda row:row['State Arrival Date'] - row['Start Date'],
-           axis = 1)
-    CRs.loc[CRs['Workflow State'] != 'Complete','Days Open'] = CRs['Start Date'].apply(lambda x: dt.today() - x)
+    completetest = (CRs['Workflow State'] == 'Complete')
+    
+    CRs.loc[CRs['Workflow State'] == 'Complete','Days Open'] = CRs.loc[CRs['Workflow State'] == 'Complete',:].apply(lambda row:row['State Arrival Date'] - row['Start Date'],axis = 1)
+    CRs.loc[completetest,'BDays Open'] = CRs.loc[completetest,:].apply(lambda row: _bdaycount(row['Start Date'],row['State Arrival Date']),axis = 1)
+    
+    CRs.loc[-completetest,'Days Open'] = CRs.loc[-completetest,'Start Date'].apply(lambda x: dt.today() - x)
+    CRs.loc[-completetest,'BDays Open'] = CRs.loc[-completetest,'Start Date'].apply(lambda x: _bdaycount(x,dt.today()))
+    
     CRs['Days Open'] = CRs['Days Open'].apply(lambda x:x.days)
+    
     
     return CRs
 
@@ -53,10 +69,13 @@ def COprep(COpath,CRpath = None):
     tempdf = COs['Actual CO Complete'].copy().to_frame()
     tempdf['today'] = dt.today()
     tempdf = tempdf.min(axis = 1)
+    COs['Maxdate'] = tempdf
     
     #Calculate days open for COs
     COs['Days Open'] = tempdf - COs['Actual Start']
     COs['Days Open'] = COs['Days Open'].apply(lambda x:(x.days))
+    
+    COs['Bdays Open'] = COs.apply(lambda row: _bdaycount(row['Actual Start'],row['Maxdate']),axis = 1)
     
     if type(CRpath) == str:
         CRs = CRprep(CRpath)
@@ -294,7 +313,7 @@ def CRweekly(CRpath,render = False):
     completeCRs.loc[:,'Days'] = completeCRs['State Arrival Date'] - completeCRs['Start Date']
     completeCRs['Days'] = completeCRs['Days'].apply(lambda x:x.days)
     #Calculate mean number of days to complete a CR, sampled weekly
-    meanCRs = pd.Series(data = completeCRs['Days'].tolist(),index = completeCRs['State Arrival Date']).resample('W').mean()
+    meanCRs = pd.Series(data = completeCRs['BDays Open'].tolist(),index = completeCRs['State Arrival Date']).resample('W').mean()
     meanCRs = meanCRs.to_frame()
     
     #Create Series of CRs open and closed dates
@@ -345,7 +364,7 @@ def COweekly(COPath,render = False):
     completeCOs['Days to Complete'] = completeCOs['Days to Complete'].apply(lambda x: x.days)
     
     #Calculate the mean days to complete a CO sampled weekly
-    meanCOs = pd.Series(data = completeCOs['Days to Complete'].tolist(),index = completeCOs['Actual CO Complete'].tolist()).resample('W').mean()
+    meanCOs = pd.Series(data = completeCOs['Bdays Open'].tolist(),index = completeCOs['Actual CO Complete'].tolist()).resample('W').mean()
     meanCOs = meanCOs.to_frame()
     
     
