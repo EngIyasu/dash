@@ -54,12 +54,22 @@ def CRprep(CRpath):
     CRs = pd.read_excel(CRpath,header = 0)
     #Calculate days open for CRs
     completetest = (CRs['Workflow State'] == 'Complete')
+
+    #Create a new column to select a start date from one of two columns
+    def startselect(option1,option2):
+        #Option 1 is the preferred option
+        if pd.isna(option1):
+            return option2
+        else:
+            return option1
+
+    CRs['StartDate2'] = CRs.apply(lambda row: startselect(row['ECA Arrival Date'],row['Start Date']),axis = 1)
     
-    CRs.loc[CRs['Workflow State'] == 'Complete','Days Open'] = CRs.loc[CRs['Workflow State'] == 'Complete',:].apply(lambda row:row['State Arrival Date'] - row['Start Date'],axis = 1)
-    CRs.loc[completetest,'BDays Open'] = CRs.loc[completetest,:].apply(lambda row: _bdaycount(row['Start Date'],row['State Arrival Date']),axis = 1)
+    CRs.loc[CRs['Workflow State'] == 'Complete','Days Open'] = CRs.loc[CRs['Workflow State'] == 'Complete',:].apply(lambda row:row['State Arrival Date'] - row['StartDate2'],axis = 1)
+    CRs.loc[completetest,'BDays Open'] = CRs.loc[completetest,:].apply(lambda row: _bdaycount(row['StartDate2'],row['State Arrival Date']),axis = 1)
     
-    CRs.loc[-completetest,'Days Open'] = CRs.loc[-completetest,'Start Date'].apply(lambda x: dt.today() - x)
-    CRs.loc[-completetest,'BDays Open'] = CRs.loc[-completetest,'Start Date'].apply(lambda x: _bdaycount(x,dt.today()))
+    CRs.loc[-completetest,'Days Open'] = CRs.loc[-completetest,'StartDate2'].apply(lambda x: dt.today() - x)
+    CRs.loc[-completetest,'BDays Open'] = CRs.loc[-completetest,'StartDate2'].apply(lambda x: _bdaycount(x,dt.today()))
     
     CRs['Days Open'] = CRs['Days Open'].apply(lambda x:x.days)
     
@@ -229,6 +239,7 @@ def CRshow(CRpath, render = False, outfile = None):
 
     #Add the Hover Tool
     TOOLTIPS = [
+        ('Number', "@Number"),
         ('CR Name', "@Name"),
         ("Champ","@ProjectChampion"),
         ("Days Open","@TotalDays"),
@@ -265,7 +276,7 @@ def COshow(CRpath,COpath,render = False, outfile = None):
     CRpath - string, path of excel CO file
     '''
     COs2  = COgannt(CRpath,COpath)
-
+    COs2['CONumber'] = COs2['CO Number']   #Just to make the HoverTool Work
     COganntfig = figure(y_range = COs2['CO Number'].tolist(), plot_width=600, plot_height=1000, x_axis_type="datetime",title = 'Open CO\'s')
     
     #Create a series of dates for today's dates
@@ -281,6 +292,7 @@ def COshow(CRpath,COpath,render = False, outfile = None):
     
     #Add the Hover Tool
     TOOLTIPS = [
+        ('CO Number',"CONumber"),
         ('CO Name', "@COName"),
         ("Champ","@Champ"),
         ("Days Open","@DaysOpen"),
@@ -343,13 +355,16 @@ def CRweekly(CRpath,render = False):
     CRcounts = CRcounts.rename({'index':'Week'},axis = 1)
     CRcounts['Week'] = CRcounts['Week'].astype(str)
     
+    #Create the bokeh plot
+    palette = ['lime','aqua']
     x = [(week1,status) for week1 in CRcounts['Week'] for status in ['Open','Closed']]
     counts = sum(zip(CRcounts['Open'], CRcounts['Closed']), ()) # like an hstack
     source = ColumnDataSource(data=dict(x=x, counts=counts))
     
     CRmetrics = figure(x_range=FactorRange(*x), plot_width = 600,plot_height = 400,title="CR History",
                toolbar_location=None, tools="")
-    CRmetrics.vbar(x='x', top='counts', width=0.8, source=source)
+    CRmetrics.vbar(x='x', top='counts', width=0.8, source=source,
+                    fill_color=factor_cmap('x',palette=palette,factors=['Open','Closed'],start = 1,end = 2))
     CRmetrics.line(x = CRcounts['Week'].tolist(),y = CRcounts['Mean'].tolist(),line_width = 3,color = 'red')
     CRmetrics.xaxis.major_label_orientation = 1
     
@@ -431,6 +446,7 @@ def CRarc(CRPath,render = False):
     over30  = OpenCRs['Days Open'][OpenCRs['Days Open'] >= 30].shape[0]
     under30 = under30/(under30+over30)
     over30 = 1-under30
+    CRcount = str(OpenCRs.shape[0])
     
     CRarc1 = figure(plot_width=400, plot_height=400,x_range = [-2.5,2.5],y_range = [-2.5,2.5],title = 'CR Target',)
     CRarc1.annular_wedge(x=0, y=0, inner_radius=1.2, outer_radius=2,
@@ -438,6 +454,15 @@ def CRarc(CRPath,render = False):
     CRarc1.annular_wedge(x = 0, y = 0, inner_radius = 1.2, outer_radius = 2,
                start_angle = 2*pi*under30,end_angle = 2*pi,color = 'red',alpha = 0.6)
     
+    centertext = CRcount
+    openpct = 'On Time = {0:2.0f}%'.format(under30*100)
+
+    mytext = Label(x=0,y=0, text=centertext,text_align = 'center',text_font_size = '30pt')
+    mytext2 = Label(x = 2.4,y = 1.9,text = openpct,text_font_size='20pt',text_align = 'right')
+
+    CRarc1.add_layout(mytext)
+    CRarc1.add_layout(mytext2)
+        
     CRarc1.xaxis.visible = False
     CRarc1.yaxis.visible = False
     CRarc1.xgrid.grid_line_color = None
